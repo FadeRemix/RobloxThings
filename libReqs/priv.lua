@@ -1,3 +1,9 @@
+if getgenv().loaded then 
+    getgenv().library:unload_menu() 
+end 
+
+getgenv().loaded = false 
+
 -- Variables 
     local uis = game:GetService("UserInputService") 
     local players = game:GetService("Players") 
