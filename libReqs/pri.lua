@@ -1,8 +1,3 @@
-if getgenv().loaded then 
-    getgenv().library:unload_menu() 
-end 
-
-getgenv().loaded = true 
 
 -- Variables 
     local uis = game:GetService("UserInputService") 
