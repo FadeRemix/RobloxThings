@@ -35,6 +35,8 @@ local floor = math.floor
 local min = math.min 
 local abs = math.abs 
 
+getgenv().library = false
+
 if getgenv().library then 
     getgenv().library:unload()
 end 
