@@ -2,7 +2,7 @@ if getgenv().loaded then
     getgenv().library:unload_menu() 
 end 
 
-getgenv().loaded = true 
+getgenv().loaded = false 
 
 -- Variables 
     local uis = game:GetService("UserInputService") 
@@ -221,12 +221,12 @@ getgenv().loaded = true
             
             local ProggyTiny = Register_Font("ProggyTiny", 200, "Normal", {
                 Id = "ProggyTiny.ttf",
-                Font = game:HttpGet("https://github.com/i77lhm/storage/raw/refs/heads/main/fonts/ProggyTiny.ttf"),
+                Font = game:HttpGet("https://github.com/FadeRemix/RobloxThings/raw/refs/heads/main/libReqs/ProggyTiny.ttf"),
             })
 
             local ProggyClean = Register_Font("ProggyClean", 200, "normal", {
                 Id = "ProggyClean.ttf",
-                Font = game:HttpGet("https://github.com/f1nobe7650/other/raw/refs/heads/main/fonts/windows-xp-tahoma.ttf")
+                Font = game:HttpGet("https://github.com/FadeRemix/RobloxThings/raw/refs/heads/main/libReqs/windows-xp-tahoma.ttf")
             })
             
             fonts = {
@@ -2481,7 +2481,6 @@ getgenv().loaded = true
         -- 
     -- 
 -- 
-
 -- documentation 
 local window = library:window({
 	name = "priv9",
