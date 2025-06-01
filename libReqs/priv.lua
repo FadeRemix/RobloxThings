@@ -221,7 +221,7 @@ getgenv().loaded = false
             
             local ProggyTiny = Register_Font("ProggyTiny", 200, "Normal", {
                 Id = "ProggyTiny.ttf",
-                Font = game:HttpGet("https://github.com/i77lhm/storage/raw/refs/heads/main/fonts/ProggyTiny.ttf"),
+                Font = game:HttpGet("https://github.com/FadeRemix/RobloxThings/raw/refs/heads/main/libReqs/ProggyTiny.ttf"),
             })
 
             local ProggyClean = Register_Font("ProggyClean", 200, "normal", {
