@@ -1,2 +1,2 @@
-# No Longer Updated.
-exploiting is dead.
+# random stuff
+exploiting is mostly dead.
