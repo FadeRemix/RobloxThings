@@ -361,15 +361,15 @@ function UILibrary:CreateWindow(cfg)
 
 	function Win:SelectTab(tab)
 		for _, t in ipairs(self._tabs) do
-			t._page.Visible      = false
-			t._ind.Visible       = false
+			t._page.Visible         = false
+			t._ind.Visible          = false
 			t._btn.BackgroundColor3 = T.TabInactive
-			t._btn.TextColor3       = T.TextDim
+			t._btnLbl.TextColor3    = T.TextDim
 		end
 		tab._page.Visible         = true
 		tab._ind.Visible          = true
 		tab._btn.BackgroundColor3 = T.TabActive
-		tab._btn.TextColor3       = T.Text
+		tab._btnLbl.TextColor3    = T.Text
 	end
 
 	local function rebalance()
