@@ -7,6 +7,7 @@ UILibrary.__index = UILibrary
 
 local TweenService     = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+local RunService       = game:GetService("RunService")
 
 ---------------------------------------------------------
 -- Built-in themes
@@ -736,8 +737,7 @@ function UILibrary:CreateWindow(cfg)
 			end
 
 			----------------------------------------------------
-			-- ColorPicker  (RGB sliders)
-			-- Popup is parented to ScreenGui to avoid all clipping
+			-- ColorPicker  (RGB — hangs off the right side of the menu)
 			----------------------------------------------------
 			function Sec:AddColorPicker(cfg)
 				cfg = cfg or {}
@@ -751,70 +751,212 @@ function UILibrary:CreateWindow(cfg)
 				local row = MakeRow(self)
 				MakeLabel(row, cfg.Name or "Color")
 
-				local preview = New("TextButton", {
-					Text = "", Size = UDim2.new(0, 22, 0, 14),
-					Position = UDim2.new(1, -22, 0.5, -7),
-					BackgroundColor3 = val, BorderSizePixel = 0,
-					ZIndex = 5, Parent = row,
-				}, { Stroke(T.Border) })
+				-- Small inline swatch
+				local swatch = New("Frame", {
+					Size             = UDim2.new(0, 22, 0, 14),
+					Position         = UDim2.new(1, -22, 0.5, -7),
+					BackgroundColor3 = val,
+					BorderSizePixel  = 0,
+					ZIndex           = 5,
+					Parent           = row,
+				}, { Stroke(Color3.new(0, 0, 0)) })
 
-				local pickerOpen = false
+				local clickTarget = New("TextButton", {
+					Text = "", Size = UDim2.new(1, 0, 1, 0),
+					BackgroundTransparency = 1, ZIndex = 6, Parent = swatch,
+				})
+
+				----
+				local PICKER_W  = 210
+				local PICKER_H  = 148   -- preview(32) + 3×(30) + padding
+				local OFFSET_X  = 6    -- gap between menu right edge and picker
+
+				local pickerOpen  = false
 				local picker
+				local trackConn
+
+				local hexLbl      -- updated as sliders move
+				local previewBar  -- big colour strip at top
+
+				local function toHex()
+					return string.format("#%02X%02X%02X", r, g, b)
+				end
 
 				local function rebuild()
 					val = Color3.fromRGB(r, g, b)
-					preview.BackgroundColor3 = val
+					swatch.BackgroundColor3 = val
+					if previewBar then previewBar.BackgroundColor3 = val end
+					if hexLbl      then hexLbl.Text = toHex() end
 					cb(val)
 				end
 
-				preview.MouseButton1Click:Connect(function()
-					pickerOpen = not pickerOpen
-					if picker then picker.Visible = pickerOpen; return end
+				-- Keep picker snapped to right edge of root as menu drags
+				local function snap()
+					if not picker or not picker.Parent then return end
+					local rAbs  = root.AbsolutePosition
+					local rSize = root.AbsoluteSize
+					local pAbs  = row.AbsolutePosition   -- row in the scrolling frame
+					local wantY = pAbs.Y - 30            -- centre roughly on the row
+					-- clamp so it stays beside the menu vertically
+					wantY = math.clamp(wantY,
+						rAbs.Y,
+						rAbs.Y + rSize.Y - PICKER_H)
+					picker.Position = UDim2.new(0,
+						rAbs.X + rSize.X + OFFSET_X,
+						0,
+						wantY)
+				end
 
-					-- Position relative to screen
-					local pAbs = preview.AbsolutePosition
+				clickTarget.MouseButton1Click:Connect(function()
+					pickerOpen = not pickerOpen
+
+					if picker then
+						picker.Visible = pickerOpen
+						if pickerOpen then
+							snap()
+							if not trackConn then
+								trackConn = RunService.Heartbeat:Connect(snap)
+							end
+						else
+							if trackConn then trackConn:Disconnect(); trackConn = nil end
+						end
+						return
+					end
+
+					-- ── Build the panel ─────────────────────────────────
 					picker = New("Frame", {
-						Size             = UDim2.new(0, 190, 0, 130),
-						Position         = UDim2.new(0, pAbs.X - 168, 0, pAbs.Y + 18),
+						Size             = UDim2.new(0, PICKER_W, 0, PICKER_H),
 						BackgroundColor3 = T.BgSecondary,
 						BorderSizePixel  = 0,
 						ZIndex           = 500,
-						Parent           = gui,  -- parented to ScreenGui directly
-					}, { Stroke(T.Border), Pad(8, 8, 8, 8), VList(8) })
+						Parent           = gui,  -- ScreenGui — no clipping
+					}, { Stroke(Color3.new(0, 0, 0), 1) })
 
-					local function MakeRGBRow(lbl, initVal, onChanged)
-						local rw = New("Frame", {
-							Size = UDim2.new(1, 0, 0, 26),
-							BackgroundTransparency = 1, ZIndex = 501, Parent = picker,
-						})
+					-- Coloured preview bar across the top
+					previewBar = New("Frame", {
+						Size             = UDim2.new(1, 0, 0, 32),
+						Position         = UDim2.new(0, 0, 0, 0),
+						BackgroundColor3 = val,
+						BorderSizePixel  = 0,
+						ZIndex           = 501,
+						Parent           = picker,
+					}, { Stroke(Color3.new(0, 0, 0), 1) })
+
+					hexLbl = New("TextLabel", {
+						Text                   = toHex(),
+						Size                   = UDim2.new(1, -10, 1, 0),
+						Position               = UDim2.new(0, 8, 0, 0),
+						BackgroundTransparency = 1,
+						TextColor3             = Color3.new(1, 1, 1),
+						TextStrokeTransparency = 0.3,
+						TextXAlignment         = Enum.TextXAlignment.Left,
+						Font                   = Enum.Font.Code,
+						TextSize               = 13,
+						ZIndex                 = 502,
+						Parent                 = previewBar,
+					})
+
+					-- RGB slider rows
+					local CHANNEL = {
+						{ lbl = "R", accent = Color3.fromRGB(220, 65,  65),  get = function() return r end, set = function(v) r = v end },
+						{ lbl = "G", accent = Color3.fromRGB(65,  200, 80),  get = function() return g end, set = function(v) g = v end },
+						{ lbl = "B", accent = Color3.fromRGB(65,  120, 220), get = function() return b end, set = function(v) b = v end },
+					}
+
+					for i, ch in ipairs(CHANNEL) do
+						local yOff = 32 + (i - 1) * 38 + 8   -- 32 preview + spacing
+
+						-- Channel letter
 						New("TextLabel", {
-							Text = lbl, Size = UDim2.new(0, 12, 0, 16),
-							Position = UDim2.new(0, 0, 0, 0),
-							BackgroundTransparency = 1, TextColor3 = T.TextDim,
-							Font = Enum.Font.GothamBold, TextSize = 11, ZIndex = 502, Parent = rw,
+							Text                   = ch.lbl,
+							Size                   = UDim2.new(0, 12, 0, 14),
+							Position               = UDim2.new(0, 8, 0, yOff + 8),
+							BackgroundTransparency = 1,
+							TextColor3             = ch.accent,
+							Font                   = Enum.Font.GothamBold,
+							TextSize               = 11,
+							ZIndex                 = 502,
+							Parent                 = picker,
 						})
+
+						-- Numeric label
 						local numLbl = New("TextLabel", {
-							Text = tostring(initVal),
-							Size = UDim2.new(0, 28, 0, 16), Position = UDim2.new(1, -28, 0, 0),
-							BackgroundTransparency = 1, TextColor3 = T.TextDim,
-							TextXAlignment = Enum.TextXAlignment.Right,
-							Font = Enum.Font.Gotham, TextSize = 11, ZIndex = 502, Parent = rw,
+							Text                   = tostring(ch.get()),
+							Size                   = UDim2.new(0, 28, 0, 14),
+							Position               = UDim2.new(1, -34, 0, yOff + 8),
+							BackgroundTransparency = 1,
+							TextColor3             = T.TextDim,
+							TextXAlignment         = Enum.TextXAlignment.Right,
+							Font                   = Enum.Font.Gotham,
+							TextSize               = 11,
+							ZIndex                 = 502,
+							Parent                 = picker,
 						})
-						local trackWrap = New("Frame", {
-							Size = UDim2.new(1, -44, 0, 16),
-							Position = UDim2.new(0, 16, 0, 5),
-							BackgroundTransparency = 1, ZIndex = 502, Parent = rw,
+
+						-- Track background
+						local track = New("Frame", {
+							Size             = UDim2.new(1, -54, 0, 6),
+							Position         = UDim2.new(0, 22, 0, yOff + 11),
+							BackgroundColor3 = T.BgTertiary,
+							BorderSizePixel  = 0,
+							ZIndex           = 502,
+							Parent           = picker,
+						}, { Stroke(T.Border) })
+
+						-- Coloured fill (matches channel colour)
+						local initPct = ch.get() / 255
+						local fill = New("Frame", {
+							Size             = UDim2.new(initPct, 0, 1, 0),
+							BackgroundColor3 = ch.accent,
+							BorderSizePixel  = 0,
+							ZIndex           = 503,
+							Parent           = track,
 						})
-						MakeSlider(trackWrap, 503, initVal / 255, function(rel)
-							local newVal = math.floor(rel * 255 + 0.5)
-							numLbl.Text = tostring(newVal)
-							onChanged(newVal)
+						local knob = New("Frame", {
+							Size             = UDim2.new(0, 9, 0, 9),
+							Position         = UDim2.new(initPct, -4, 0.5, -4),
+							BackgroundColor3 = Color3.new(1, 1, 1),
+							BorderSizePixel  = 0,
+							ZIndex           = 504,
+							Parent           = track,
+						})
+
+						local hitbox = New("TextButton", {
+							Text = "", Size = UDim2.new(1, 0, 0, 22),
+							Position = UDim2.new(0, 0, 0.5, -11),
+							BackgroundTransparency = 1, ZIndex = 505, Parent = track,
+						})
+
+						local sliding = false
+						local function upd(x)
+							local rel = math.clamp(
+								(x - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
+							fill.Size     = UDim2.new(rel, 0, 1, 0)
+							knob.Position = UDim2.new(rel, -4, 0.5, -4)
+							ch.set(math.floor(rel * 255 + 0.5))
+							numLbl.Text = tostring(ch.get())
+							rebuild()
+						end
+
+						hitbox.InputBegan:Connect(function(i)
+							if i.UserInputType == Enum.UserInputType.MouseButton1 then
+								sliding = true; upd(i.Position.X)
+							end
+						end)
+						UserInputService.InputChanged:Connect(function(i)
+							if sliding and i.UserInputType == Enum.UserInputType.MouseMovement then
+								upd(i.Position.X)
+							end
+						end)
+						UserInputService.InputEnded:Connect(function(i)
+							if i.UserInputType == Enum.UserInputType.MouseButton1 then
+								sliding = false
+							end
 						end)
 					end
 
-					MakeRGBRow("R", r, function(v) r = v; rebuild() end)
-					MakeRGBRow("G", g, function(v) g = v; rebuild() end)
-					MakeRGBRow("B", b, function(v) b = v; rebuild() end)
+					snap()
+					trackConn = RunService.Heartbeat:Connect(snap)
 				end)
 
 				return {
@@ -824,7 +966,7 @@ function UILibrary:CreateWindow(cfg)
 						r = math.floor(c.R * 255)
 						g = math.floor(c.G * 255)
 						b = math.floor(c.B * 255)
-						preview.BackgroundColor3 = c
+						swatch.BackgroundColor3 = c
 					end,
 				}
 			end
