@@ -26,4 +26,4 @@ for i=1,length do
 		str = str..letters[math.random(1,#letters)]
 end
 
-writefile("rndmstring.txt","Username: "..str)
+writefile("rndmstring.txt", str)
